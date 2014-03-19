@@ -1,61 +1,150 @@
 package Net::Async::SMTP;
 use strict;
 use warnings;
+use parent qw(IO::Async::Notifier);
 
-our $VERSION = '0.001';
+use Net::Async::SMTP::Connection;
+use IO::Async::Resolver::DNS;
+use Future::Utils qw(try_repeat_until_success);
+
+sub port { shift->{port} }
+sub host { shift->{host} }
+sub domain { shift->{domain} }
+sub auth { shift->{auth} }
+
+=head2 connection
+
+Connects to the SMTP server.
+
+If we had a host, we'll connect directly.
+
+If we have a domain, then we'll do an MX lookup on it.
+
+If we don't have either, you'll probably just see errors
+or unresolved futures.
+
+=cut
+
+sub connection {
+	my $self = shift;
+	(defined($self->host)
+	? Future->wrap($self->host)
+	: $self->mx_lookup($self->domain))->then(sub {
+		my @hosts = @_;
+		try_repeat_until_success {
+			my $host = shift;
+			$self->debug_printf("Trying connection to [%s]", $host);
+			$self->loop->connect(
+				socktype => 'stream',
+				host     => $host,
+				service  => $self->port || 'smtp',
+			)->on_fail(sub {
+				$self->debug_printf("Failed connection to [%s], have %d left to try", $host, scalar @hosts);
+			})
+		} foreach => \@hosts;
+	});
+}
+
+=head2 mx_lookup
+
+Looks up MX records for the given domain.
+
+Currently only tries the first.
+
+=cut
+
+sub mx_lookup {
+	my $self = shift;
+	my $domain = shift;
+	my $resolver = $self->loop->resolver;
+ 
+ 	my $f = $self->loop->new_future;
+	$resolver->res_query(
+		dname => $domain,
+		type  => "MX",
+		on_resolved => sub { $f->done(@_) },
+		on_error => sub { $f->fail(@_) },
+	);
+	$f->transform(
+		done => sub {
+			my $pkt = shift;
+			my @host;
+			foreach my $mx ( $pkt->answer ) {
+				next unless $mx->type eq "MX";
+				push @host, [ $mx->preference, $mx->exchange ];
+			}
+			# sort things 
+			map $_->[1], sort { $_->[0] <=> $_->[1] } @host;
+		}
+	)
+}
+
+=head2 configure
+
+Configure things.
+
+=cut
+
+sub configure {
+	my $self = shift;
+	my %args = @_;
+	for(grep exists $args{$_}, qw(host user pass auth domain)) {
+		$self->{$_} = delete $args{$_};
+	}
+	# SSL support
+	$self->{$_} = delete $args{$_} for grep /^SSL_/, keys %args;
+	$self->SUPER::configure(%args);
+}
+
+=head2 connected
+
+Returns the L<Future> indicating we have a valid connection.
+
+=cut
+
+sub connected {
+	my $self = shift;
+	$self->{connected} ||= $self->connection->then(sub {
+		my $sock = shift;
+		my $stream = Net::Async::SMTP::Connection->new(
+			handle => $sock,
+			auth => $self->auth,
+		);
+		$self->add_child($stream);
+		$stream->send_greeting->then(sub {
+			return Future->wrap($stream) unless $stream->has_feature('STARTTLS');
+			# Currently need to have this loaded to find ->sslwrite
+			require IO::Async::SSLStream;
+			$stream->starttls(
+				$self->ssl_parameters
+			)
+		});
+	});
+}
+
+sub ssl_parameters {
+	my $self = shift;
+	map { $_, $self->{$_} } grep /^SSL_/, keys %$self;
+}
+
+sub login {
+	my $self = shift;
+	my %args = @_;
+	$self->connected->then(sub {
+		my $connection = shift;
+		$connection->login(%args);
+	});
+}
+
+sub send {
+	my $self = shift;
+	my %args = @_;
+
+	$self->connected->then(sub {
+		my $connection = shift;
+		$connection->send(%args);
+	})
+}
 
 1;
-
-__END__
-
-=head1 NAME
-
-Net::Async::SMTP - asynchronous SMTP handling based on L<Protocol::SMTP> and L<IO::Async::Protocol::Stream>.
-
-=head1 SYNOPSIS
-
- use IO::Async::Loop;
- use Net::Async::SMTP;
- my $loop = IO::Async::Loop->new;
- my $imap = Net::Async::SMTP::Client->new(
- 	loop => $loop,
-	host => 'mailserver.com',
-	service => 1025, # custom port number example
-	user => 'user@mailserver.com',
-	pass => 'password',
-
-# Automatically retrieve any new messages that arrive on the server
-	on_send_ready => sub {
-		my ($self, $id) = @_;
-		$self->send(
-			from		=> '',
-			recipient	=> '',
-			data		=> sub {
-
-			}
-		);
-	},
-
-# Display the subject whenever we have a successful FETCH command
-	on_queued => sub {
-		my ($self, $id) = @_;
-		warn "Queued as $msg";
-	},
- );
- $loop->loop_forever;
-
-=head1 DESCRIPTION
-
-Provides support for communicating with SMTP servers under L<IO::Async>.
-
-See L<Protocol::SMTP> for more details on this implementation of SMTP, and RFC822 and similar
-for the official protocol specification.
-
-=head1 AUTHOR
-
-Tom Molesworth <cpan@entitymodel.com>
-
-=head1 LICENSE
-
-Copyright Tom Molesworth 2011. Licensed under the same terms as Perl itself.
 
