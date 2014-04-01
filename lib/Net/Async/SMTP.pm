@@ -1,27 +1,47 @@
 package Net::Async::SMTP;
+# ABSTRACT: SMTP mail sending support for IO::Async
 use strict;
 use warnings;
 use parent qw(IO::Async::Notifier);
 
-use Net::Async::SMTP::Connection;
+=head1 NAME
+
+Net::Async::SMTP - sending email with IO::Async
+
+=head1 SYNOPSIS
+
+# EXAMPLE: examples/synopsis.pl
+
+=head1 DESCRIPTION
+
+=cut
+
 use IO::Async::Resolver::DNS;
 use Future::Utils qw(try_repeat_until_success);
 
-sub port { shift->{port} }
-sub host { shift->{host} }
-sub domain { shift->{domain} }
-sub auth { shift->{auth} }
+use Net::Async::SMTP::Connection;
+
+=head1 METHODS
 
 =head2 connection
 
-Connects to the SMTP server.
+Establishes or returns the TCP connection to the SMTP server.
 
-If we had a host, we'll connect directly.
+=over 4
 
-If we have a domain, then we'll do an MX lookup on it.
+=item * If we had a host, we'll connect directly.
 
-If we don't have either, you'll probably just see errors
+=item * If we have a domain, then we'll do an MX lookup on it.
+
+=item * If we don't have either, you'll probably just see errors
 or unresolved futures.
+
+=back
+
+Returns the L<Future> representing the connection. Attach events via
+methods on L<Future> such as C<on_done>, C<then> etc. 
+
+See also: L</connected>
 
 =cut
 
@@ -51,6 +71,8 @@ Looks up MX records for the given domain.
 
 Currently only tries the first.
 
+Returns a L<Future> which will resolve to the list of records found.
+
 =cut
 
 sub mx_lookup {
@@ -58,14 +80,7 @@ sub mx_lookup {
 	my $domain = shift;
 	my $resolver = $self->loop->resolver;
  
- 	my $f = $self->loop->new_future;
-	$resolver->res_query(
-		dname => $domain,
-		type  => "MX",
-		on_resolved => sub { $f->done(@_) },
-		on_error => sub { $f->fail(@_) },
-	);
-	$f->transform(
+ 	my $f = $self->loop->new_future->transform(
 		done => sub {
 			my $pkt = shift;
 			my @host;
@@ -73,15 +88,28 @@ sub mx_lookup {
 				next unless $mx->type eq "MX";
 				push @host, [ $mx->preference, $mx->exchange ];
 			}
-			# sort things 
+			# sort things - possibly already handled by the resolver 
 			map $_->[1], sort { $_->[0] <=> $_->[1] } @host;
 		}
-	)
+	);
+	$resolver->res_query(
+		dname => $domain,
+		type  => "MX",
+		on_resolved => sub {
+			$f->done(@_);
+			undef $f;
+		},
+		on_error => sub {
+			$f->fail(@_);
+			undef $f;
+		},
+	);
+	$f
 }
 
 =head2 configure
 
-Configure things.
+Overrides L<IO::Async::Notifier> C<configure> to apply SMTP-specific config.
 
 =cut
 
@@ -98,7 +126,10 @@ sub configure {
 
 =head2 connected
 
-Returns the L<Future> indicating we have a valid connection.
+Returns the L<Future> indicating our SMTP connection.
+
+Resolves to a L<Net::Async::SMTP::Connection> instance on
+success.
 
 =cut
 
@@ -113,8 +144,10 @@ sub connected {
 		$self->add_child($stream);
 		$stream->send_greeting->then(sub {
 			return Future->wrap($stream) unless $stream->has_feature('STARTTLS');
+
 			# Currently need to have this loaded to find ->sslwrite
 			require IO::Async::SSLStream;
+
 			$stream->starttls(
 				$self->ssl_parameters
 			)
@@ -122,10 +155,25 @@ sub connected {
 	});
 }
 
+=head2 ssl_parameters
+
+Returns any defined SSL parameters as passed to the constructor
+or L</configure>.
+
+=cut
+
 sub ssl_parameters {
 	my $self = shift;
 	map { $_, $self->{$_} } grep /^SSL_/, keys %$self;
 }
+
+=head2 login
+
+Attempts login, connecting first if required.
+
+Returns a L<Future> which will resolve with this instance when the login completes.
+
+=cut
 
 sub login {
 	my $self = shift;
@@ -135,6 +183,18 @@ sub login {
 		$connection->login(%args);
 	});
 }
+
+=head2 send
+
+Attempts to send message(s), connecting first if required.
+
+If this server requires login, you'll need to call L</login> yourself.
+
+See L<Protocol::SMTP::Client/send>.
+
+Returns a L<Future>.
+
+=cut
 
 sub send {
 	my $self = shift;
@@ -146,5 +206,52 @@ sub send {
 	})
 }
 
+=head1 METHODS - Accessors
+
+=cut
+
+=head2 port
+
+Returns the port used for communicating with the server,
+or undef for default (25).
+
+=cut
+
+sub port { shift->{port} }
+
+=head2 host
+
+Returns the host we're going to connect to.
+
+=cut
+
+sub host { shift->{host} }
+
+=head2 domain
+
+Returns the domain used for the email server.
+
+=cut
+
+sub domain { shift->{domain} }
+
+=head2 auth
+
+Returns the auth method used for server authentication.
+
+=cut
+
+sub auth { shift->{auth} }
+
 1;
+
+__END__
+
+=head1 AUTHOR
+
+Tom Molesworth <cpan@entitymodel.com>
+
+=head1 LICENSE
+
+Copyright Tom Molesworth 2012-2014. Licensed under the same terms as Perl itself.
 
