@@ -21,7 +21,6 @@ my $smtp = Net::Async::SMTP::Client->new(
 	service			=> $ENV{NET_ASYNC_SMTP_PORT} || 'smtp',
 	user			=> $ENV{NET_ASYNC_SMTP_USER},
 	pass			=> $ENV{NET_ASYNC_SMTP_PASS},
-	on_authenticated	=> \&check_server,
 );
 
 $loop->add($smtp);

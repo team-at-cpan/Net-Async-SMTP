@@ -3,6 +3,16 @@ use strict;
 use warnings;
 use parent qw(IO::Async::Stream);
 
+=head1 NAME
+
+Net::Async::SMTP::Connection - stream subclass for dealing with SMTP connections
+
+=head1 DESCRIPTION
+
+Used internally by L<Net::Async::SMTP>. No user-serviceable parts inside.
+
+=cut
+
 use IO::Socket::SSL qw(SSL_VERIFY_NONE);
 use Protocol::SMTP::Client;
 
@@ -71,3 +81,12 @@ sub send { my $self = shift; $self->protocol->send(@_) }
 sub login { my $self = shift; $self->protocol->login(@_) }
 
 1;
+
+=head1 AUTHOR
+
+Tom Molesworth <cpan@entitymodel.com>
+
+=head1 LICENSE
+
+Copyright Tom Molesworth 2012-2014. Licensed under the same terms as Perl itself.
+

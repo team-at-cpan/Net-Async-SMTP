@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 use IO::Async::Loop;
-use Net::Async::SMTP;
+use Net::Async::SMTP::Client;
 use Email::Simple;
 use Net::DNS;
 use IO::Socket::SSL qw(SSL_VERIFY_NONE);
@@ -11,25 +11,25 @@ use utf8;
 binmode STDOUT, ':encoding(UTF-8)';
 
 # You'd want to replace this.
-my $domain = 'example.com';
+my $domain = 'audioboundary.com';
 # And this.
-my $user = 'user@example.com';
+my $user = 'tom@audioboundary.com';
 my $email = Email::Simple->create(
 	header => [
-		From => $user,
-		To => $user,
-		Subject => 'NaSMTP ẽ test',
+		From    => $user,
+		To      => $user,
+		Subject => 'NaSMTP test',
 	],
 	attributes => {
 		encoding => "8bitmime",
-		charset => "UTF-8",
+		charset  => "UTF-8",
 	},
 	body_str => 'some text ë',
 );
 warn "Will try to send this email:\n" . $email->as_string;
 
 my $loop = IO::Async::Loop->new;
-my $smtp = Net::Async::SMTP->new(
+my $smtp = Net::Async::SMTP::Client->new(
 	domain => $domain,
 	# You can override the auth method, but this should only
 	# be necessary for a badly-configured mail server.
@@ -44,15 +44,15 @@ $smtp->connected->then(sub {
 	# in the background via instantiation.
 	$smtp->login(
 		# Also this.
-		user => 'someuser',
+		user => $user,
 		# And this.
-		pass => 'somepassword',
+		pass => 'd3m0n1c',
 	)
 })->then(sub {
 	# and this is the method for sending.
 	$smtp->send(
 		# And this as well.
-		to => 'person@example.com',
+		to => 'tom@audioboundary.com',
 		from => $user,
 		data => $email->as_string,
 	)

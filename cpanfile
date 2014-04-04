@@ -1,6 +1,8 @@
 requires 'parent', 0;
 requires 'Future', '>= 0.24';
 requires 'IO::Async', '>= 0.54';
+requires 'IO::Async::SSL', '>= 0.14';
+requires 'IO::Socket::SSL', 0;
 requires 'Protocol::SMTP', '>= 0.001';
 
 recommends 'IO::Async::Resolver::DNS', '>= 0.04';
