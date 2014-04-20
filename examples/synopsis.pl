@@ -1,60 +1,36 @@
-#!/usr/bin/env perl 
+#!/usr/bin/env perl
 use strict;
 use warnings;
 use IO::Async::Loop;
 use Net::Async::SMTP::Client;
 use Email::Simple;
-use Net::DNS;
-use IO::Socket::SSL qw(SSL_VERIFY_NONE);
-use utf8;
-
-binmode STDOUT, ':encoding(UTF-8)';
-
-# You'd want to replace this.
-my $domain = 'audioboundary.com';
-# And this.
-my $user = 'tom@audioboundary.com';
 my $email = Email::Simple->create(
 	header => [
-		From    => $user,
-		To      => $user,
+		From    => 'someone@example.com',
+		To      => 'other@example.com',
 		Subject => 'NaSMTP test',
 	],
 	attributes => {
 		encoding => "8bitmime",
 		charset  => "UTF-8",
 	},
-	body_str => 'some text ë',
+	body_str => '... text ...',
 );
-warn "Will try to send this email:\n" . $email->as_string;
-
 my $loop = IO::Async::Loop->new;
-my $smtp = Net::Async::SMTP::Client->new(
-	domain => $domain,
-	# You can override the auth method, but this should only
-	# be necessary for a badly-configured mail server.
-	# auth => 'PLAIN',
-	# And if you have a cert, you don't need this.
-	SSL_verify_mode => SSL_VERIFY_NONE,
+$loop->add(
+	my $smtp = Net::Async::SMTP::Client->new(
+		domain => 'example.com',
+	);
 );
-$loop->add($smtp);
-
 $smtp->connected->then(sub {
-	# So the login is a separate step here. It should perhaps be done
-	# in the background via instantiation.
 	$smtp->login(
-		# Also this.
-		user => $user,
-		# And this.
-		pass => 'd3m0n1c',
+		user => '...',
+		pass => '...',
 	)
 })->then(sub {
-	# and this is the method for sending.
 	$smtp->send(
-		# And this as well.
-		to => 'tom@audioboundary.com',
-		from => $user,
+		to   => 'someone@example.com',
+		from => 'other@example.com',
 		data => $email->as_string,
 	)
 })->get;
-

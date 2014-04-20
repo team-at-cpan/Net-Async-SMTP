@@ -1,4 +1,5 @@
 package Net::Async::SMTP::Client;
+
 use strict;
 use warnings;
 use parent qw(IO::Async::Notifier);
@@ -76,8 +77,6 @@ sub connection {
 
 Looks up MX records for the given domain.
 
-Currently only tries the first.
-
 Returns a L<Future> which will resolve to the list of records found.
 
 =cut
@@ -87,7 +86,24 @@ sub mx_lookup {
 	my $domain = shift;
 	my $resolver = $self->loop->resolver;
  
- 	my $f = $self->loop->new_future->transform(
+ 	# Wrap the resolver query as a Future
+ 	my $f = $self->loop->new_future;
+	$resolver->res_query(
+		dname => $domain,
+		type  => "MX",
+		on_resolved => sub {
+		warn "resolved => @_";
+			$f->done(@_);
+			undef $f;
+		},
+		on_error => sub {
+			$f->fail(@_);
+			undef $f;
+		},
+	);
+
+	# ... and return just the list of hosts we want to contact as our result
+	$f->transform(
 		done => sub {
 			my $pkt = shift;
 			my @host;
@@ -99,19 +115,6 @@ sub mx_lookup {
 			map $_->[1], sort { $_->[0] <=> $_->[1] } @host;
 		}
 	);
-	$resolver->res_query(
-		dname => $domain,
-		type  => "MX",
-		on_resolved => sub {
-			$f->done(@_);
-			undef $f;
-		},
-		on_error => sub {
-			$f->fail(@_);
-			undef $f;
-		},
-	);
-	$f
 }
 
 =head2 configure

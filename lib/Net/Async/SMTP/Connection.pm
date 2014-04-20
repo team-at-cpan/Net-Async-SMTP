@@ -1,4 +1,5 @@
 package Net::Async::SMTP::Connection;
+
 use strict;
 use warnings;
 use parent qw(IO::Async::Stream);
