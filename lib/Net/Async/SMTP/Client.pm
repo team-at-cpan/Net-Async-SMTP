@@ -92,7 +92,6 @@ sub mx_lookup {
 		dname => $domain,
 		type  => "MX",
 		on_resolved => sub {
-		warn "resolved => @_";
 			$f->done(@_);
 			undef $f;
 		},
