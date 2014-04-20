@@ -20,7 +20,7 @@ my $loop = IO::Async::Loop->new;
 $loop->add(
 	my $smtp = Net::Async::SMTP::Client->new(
 		domain => 'example.com',
-	);
+	)
 );
 $smtp->connected->then(sub {
 	$smtp->login(

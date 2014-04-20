@@ -47,7 +47,7 @@ or unresolved futures.
 =back
 
 Returns the L<Future> representing the connection. Attach events via
-methods on L<Future> such as C<on_done>, C<then> etc. 
+methods on L<Future> such as C<on_done>, C<then> etc.
 
 See also: L</connected>
 
@@ -85,7 +85,7 @@ sub mx_lookup {
 	my $self = shift;
 	my $domain = shift;
 	my $resolver = $self->loop->resolver;
- 
+
  	# Wrap the resolver query as a Future
  	my $f = $self->loop->new_future;
 	$resolver->res_query(
@@ -111,7 +111,7 @@ sub mx_lookup {
 				next unless $mx->type eq "MX";
 				push @host, [ $mx->preference, $mx->exchange ];
 			}
-			# sort things - possibly already handled by the resolver 
+			# sort things - possibly already handled by the resolver
 			map $_->[1], sort { $_->[0] <=> $_->[1] } @host;
 		}
 	);

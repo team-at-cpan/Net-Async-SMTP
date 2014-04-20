@@ -65,7 +65,7 @@ sub starttls {
 }
 
 sub on_read {
-	my ($self, $buffref, $eof) = @_;
+	my ($self, $buffref) = @_;
 	while( $$buffref =~ s/^(.*)\x0D\x0A// ) {
 		my $line = $1;
 		if($self->{sending_content}) {
