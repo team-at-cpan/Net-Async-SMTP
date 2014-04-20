@@ -1,2 +1,6 @@
 
+Revision history for {{$dist->name}}
+
+{{$NEXT}}
+	Initial CPAN release
 
