@@ -148,7 +148,9 @@ sub connected {
 		my $sock = shift;
 		my $stream = Net::Async::SMTP::Connection->new(
 			handle => $sock,
-			auth => $self->auth,
+			$self->auth
+			? (auth => $self->auth)
+			: (),
 		);
 		$self->add_child($stream);
 		$stream->send_greeting->then(sub {
