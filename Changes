@@ -2,6 +2,10 @@
 Revision history for {{$dist->name}}
 
 {{$NEXT}}
+
+0.002     2014-04-22 03:28:51+01:00 Europe/London
+	No new features.
+
 	Dependencies:
 	* IO::Async::Resolver::DNS is now required rather than recommended, since
 	it changes the behaviour of the core IO::Async::Loop resolver and the alternative

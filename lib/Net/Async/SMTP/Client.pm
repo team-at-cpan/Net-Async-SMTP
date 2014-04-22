@@ -4,8 +4,6 @@ use strict;
 use warnings;
 use parent qw(IO::Async::Notifier);
 
-our $VERSION = '0.001';
-
 =head1 NAME
 
 Net::Async::SMTP::Client - sending email with IO::Async
