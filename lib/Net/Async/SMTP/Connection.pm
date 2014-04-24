@@ -12,6 +12,17 @@ Net::Async::SMTP::Connection - stream subclass for dealing with SMTP connections
 
 Used internally by L<Net::Async::SMTP>. No user-serviceable parts inside.
 
+Timeouts:
+
+RFC821 4.5.3.2 - An SMTP client MUST provide a timeout mechanism
+
+greeting_timeout => 300,
+mail_timeout => 300,
+rcpt_timeout => 300,
+data_timeout => 120,
+data_block_timeout => 180,
+data_finish_timeout => 600,
+
 =cut
 
 use IO::Socket::SSL qw(SSL_VERIFY_NONE);
