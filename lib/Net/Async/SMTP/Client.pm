@@ -215,6 +215,25 @@ sub send {
 	})
 }
 
+=head2 quit
+
+Quit the SMTP connection, unsetting the connection.
+
+Returns a L<Future>.
+
+=cut
+
+sub quit {
+	my $self = shift;
+
+	$self->connected->then(sub {
+		my $connection = shift;
+		my $rv = $connection->quit;
+        undef $self->{connected};
+        return $rv;
+	})
+}
+
 =head1 METHODS - Accessors
 
 =cut

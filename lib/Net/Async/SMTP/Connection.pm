@@ -91,6 +91,7 @@ sub on_read {
 sub has_feature { my $self = shift; $self->protocol->has_feature(@_) }
 sub send { my $self = shift; $self->protocol->send(@_) }
 sub login { my $self = shift; $self->protocol->login(@_) }
+sub quit { my $self = shift; $self->protocol->quit(@_) }
 
 1;
 
